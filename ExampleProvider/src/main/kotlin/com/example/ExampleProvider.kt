@@ -4,7 +4,6 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import java.net.URLEncoder
 
 @Suppress("UNCHECKED_CAST")
 class ExampleProvider : MainAPI() {
@@ -17,6 +16,25 @@ class ExampleProvider : MainAPI() {
     private val apiEndpoint = "$mainUrl/api/movies"
     private val mapper = jacksonObjectMapper()
 
+    // Store movie data temporarily during the session
+    companion object {
+        val movieStore = mutableMapOf<String, MovieData>()
+    }
+
+    data class MovieData(
+        val id: String,
+        val title: String,
+        val streamUrl: String,
+        val poster: String,
+        val backdrop: String,
+        val plot: String,
+        val year: Int?,
+        val rating: Double?,
+        val duration: Int?,
+        val director: String,
+        val genres: List<String>
+    )
+
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept" to "application/json",
@@ -26,18 +44,26 @@ class ExampleProvider : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val allMovies = mutableListOf<Map<String, Any>>()
 
-        for (page in 1..3) {
-            val url = "$apiEndpoint?page=$page"
-            val response = app.get(url, headers = headers).text
-            val json = mapper.readValue<Map<String, Any>>(response)
-            val movies = json["data"] as? List<Map<String, Any>> ?: break
-            allMovies.addAll(movies)
-            if (movies.size < 12) break
+        for (page in 1..2) {
+            try {
+                val url = "$apiEndpoint?page=$page"
+                val response = app.get(url, headers = headers).text
+                val json = mapper.readValue<Map<String, Any>>(response)
+                val movies = json["data"] as? List<Map<String, Any>> ?: break
+                allMovies.addAll(movies)
+                if (movies.size < 12) break
+            } catch (e: Exception) {
+                break
+            }
         }
 
-        val filtered = allMovies.filter { movie ->
-            val title = movie["title"] as? String ?: ""
-            title.contains(query, ignoreCase = true)
+        val filtered = if (query.isNotBlank() && query != "a") {
+            allMovies.filter { movie ->
+                val title = movie["title"] as? String ?: ""
+                title.contains(query, ignoreCase = true)
+            }
+        } else {
+            allMovies
         }
 
         return filtered.mapNotNull { movie ->
@@ -52,14 +78,15 @@ class ExampleProvider : MainAPI() {
             val duration = (movie["runtime"] as? String)?.toIntOrNull()
             val director = movie["director"] as? String ?: ""
             val genresStr = movie["genres"] as? String ?: ""
+            val genres = genresStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-            // Encode all data into the URL so load() can use it
-            val encodedData = URLEncoder.encode(
-                "$title|$streamUrl|$poster|$backdrop|$plot|$year|$rating|$duration|$director|$genresStr",
-                "UTF-8"
+            // Store movie data
+            movieStore[id] = MovieData(
+                id, title, streamUrl, poster, backdrop, plot,
+                year, rating, duration, director, genres
             )
 
-            newMovieSearchResponse(title, "data:$encodedData", TvType.Movie, false) {
+            newMovieSearchResponse(title, id, TvType.Movie, false) {
                 this.posterUrl = poster
                 this.year = year
             }
@@ -67,33 +94,29 @@ class ExampleProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        // Extract encoded data from "data:..." URL
-        val encodedData = url.removePrefix("data:")
-        val decoded = java.net.URLDecoder.decode(encodedData, "UTF-8")
-        val parts = decoded.split("|")
+        // url is the movie ID
+        val movie = movieStore[url] ?: throw Error("Movie not found")
 
-        val title = parts.getOrNull(0) ?: throw Error("No title")
-        val streamUrl = parts.getOrNull(1) ?: ""
-        val poster = parts.getOrNull(2) ?: ""
-        val backdrop = parts.getOrNull(3) ?: ""
-        val plot = parts.getOrNull(4) ?: ""
-        val year = parts.getOrNull(5)?.toIntOrNull()
-        val rating = parts.getOrNull(6)?.toDoubleOrNull()
-        val duration = parts.getOrNull(7)?.toIntOrNull()
-        val director = parts.getOrNull(8) ?: ""
-        val genresStr = parts.getOrNull(9) ?: ""
-        val genres = genresStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        return newMovieLoadResponse(movie.title, movie.streamUrl, TvType.Movie, movie.streamUrl) {
+            this.plot = movie.plot
+            this.year = movie.year
+            this.posterUrl = movie.poster
+            this.backgroundPosterUrl = movie.backdrop
+            this.duration = movie.duration
 
-        return newMovieLoadResponse(title, streamUrl, TvType.Movie, streamUrl) {
-            this.plot = plot
-            this.year = year
-            this.posterUrl = poster
-            this.backgroundPosterUrl = backdrop
-            this.duration = duration
             val tagsList = mutableListOf<String>()
-            if (director.isNotBlank()) tagsList.add("Director: $director")
-            tagsList.addAll(genres)
-            if (tagsList.isNotEmpty()) this.tags = tagsList
+            if (movie.director.isNotBlank()) {
+                tagsList.add("Director: ${movie.director}")
+            }
+            tagsList.addAll(movie.genres)
+            if (tagsList.isNotEmpty()) {
+                this.tags = tagsList
+            }
+
+            if (movie.rating != null) {
+                // Don't set score if it causes errors
+                // this.score = movie.rating
+            }
         }
     }
 
@@ -135,21 +158,23 @@ class ExampleProvider : MainAPI() {
             val id = movie["id"]?.toString() ?: return@mapNotNull null
             val title = movie["title"] as? String ?: return@mapNotNull null
             val poster = movie["poster_url"] as? String ?: ""
+            val year = (movie["year"] as? String)?.toIntOrNull()
             val streamUrl = movie["stream_url"] as? String ?: ""
             val backdrop = movie["backdrop_url"] as? String ?: ""
             val plot = movie["overview"] as? String ?: ""
-            val year = (movie["year"] as? String)?.toIntOrNull()
             val rating = (movie["rating"] as? String)?.toDoubleOrNull()
             val duration = (movie["runtime"] as? String)?.toIntOrNull()
             val director = movie["director"] as? String ?: ""
             val genresStr = movie["genres"] as? String ?: ""
+            val genres = genresStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-            val encodedData = URLEncoder.encode(
-                "$title|$streamUrl|$poster|$backdrop|$plot|$year|$rating|$duration|$director|$genresStr",
-                "UTF-8"
+            // Store in the same companion object
+            movieStore[id] = MovieData(
+                id, title, streamUrl, poster, backdrop, plot,
+                year, rating, duration, director, genres
             )
 
-            newMovieSearchResponse(title, "data:$encodedData", TvType.Movie, false) {
+            newMovieSearchResponse(title, id, TvType.Movie, false) {
                 this.posterUrl = poster
                 this.year = year
             }
