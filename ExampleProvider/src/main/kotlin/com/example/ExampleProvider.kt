@@ -307,7 +307,7 @@ class ExampleProvider : MainAPI() {
             val season = series.seasons.find { it.seasonNumber == seasonNum } ?: return false
             val episode = season.episodes.find { it.episodeNumber == episodeNum } ?: return false
 
-            // Construct the full stream URL
+            // episode.fileUrl should already be cleaned (without "server1/")
             val streamUrl = "http://server1.dhakamovie.com/${episode.fileUrl}"
             val encodedUrl = streamUrl.replace(" ", "%20")
 
