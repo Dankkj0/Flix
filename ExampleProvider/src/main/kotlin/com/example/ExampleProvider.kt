@@ -4,6 +4,7 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import java.net.URLEncoder
 
 @Suppress("UNCHECKED_CAST")
 class ExampleProvider : MainAPI() {
@@ -21,8 +22,6 @@ class ExampleProvider : MainAPI() {
         "Accept" to "application/json",
         "Referer" to mainUrl
     )
-
-    private val movieCache = mutableMapOf<String, Map<String, Any>>()
 
     override suspend fun search(query: String): List<SearchResponse> {
         val allMovies = mutableListOf<Map<String, Any>>()
@@ -46,10 +45,21 @@ class ExampleProvider : MainAPI() {
             val title = movie["title"] as? String ?: return@mapNotNull null
             val poster = movie["poster_url"] as? String ?: ""
             val year = (movie["year"] as? String)?.toIntOrNull()
+            val streamUrl = movie["stream_url"] as? String ?: ""
+            val backdrop = movie["backdrop_url"] as? String ?: ""
+            val plot = movie["overview"] as? String ?: ""
+            val rating = (movie["rating"] as? String)?.toDoubleOrNull()
+            val duration = (movie["runtime"] as? String)?.toIntOrNull()
+            val director = movie["director"] as? String ?: ""
+            val genresStr = movie["genres"] as? String ?: ""
 
-            movieCache[id] = movie
+            // Encode all data into the URL so load() can use it
+            val encodedData = URLEncoder.encode(
+                "$title|$streamUrl|$poster|$backdrop|$plot|$year|$rating|$duration|$director|$genresStr",
+                "UTF-8"
+            )
 
-            newMovieSearchResponse(title, "movie:$id", TvType.Movie, false) {
+            newMovieSearchResponse(title, "data:$encodedData", TvType.Movie, false) {
                 this.posterUrl = poster
                 this.year = year
             }
@@ -57,19 +67,22 @@ class ExampleProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val id = url.removePrefix("movie:")
-        val movie = movieCache[id] ?: throw Error("Movie data not found in cache")
+        // Extract encoded data from "data:..." URL
+        val encodedData = url.removePrefix("data:")
+        val decoded = java.net.URLDecoder.decode(encodedData, "UTF-8")
+        val parts = decoded.split("|")
 
-        val title = movie["title"] as? String ?: throw Error("No title")
-        val plot = movie["overview"] as? String ?: ""
-        val year = (movie["year"] as? String)?.toIntOrNull()
-        val poster = movie["poster_url"] as? String ?: ""
-        val backdrop = movie["backdrop_url"] as? String ?: ""
-        val duration = (movie["runtime"] as? String)?.toIntOrNull()
-        val director = movie["director"] as? String ?: ""
-        val genresStr = movie["genres"] as? String ?: ""
+        val title = parts.getOrNull(0) ?: throw Error("No title")
+        val streamUrl = parts.getOrNull(1) ?: ""
+        val poster = parts.getOrNull(2) ?: ""
+        val backdrop = parts.getOrNull(3) ?: ""
+        val plot = parts.getOrNull(4) ?: ""
+        val year = parts.getOrNull(5)?.toIntOrNull()
+        val rating = parts.getOrNull(6)?.toDoubleOrNull()
+        val duration = parts.getOrNull(7)?.toIntOrNull()
+        val director = parts.getOrNull(8) ?: ""
+        val genresStr = parts.getOrNull(9) ?: ""
         val genres = genresStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        val streamUrl = movie["stream_url"] as? String ?: ""
 
         return newMovieLoadResponse(title, streamUrl, TvType.Movie, streamUrl) {
             this.plot = plot
@@ -122,10 +135,23 @@ class ExampleProvider : MainAPI() {
             val id = movie["id"]?.toString() ?: return@mapNotNull null
             val title = movie["title"] as? String ?: return@mapNotNull null
             val poster = movie["poster_url"] as? String ?: ""
-            movieCache[id] = movie
+            val streamUrl = movie["stream_url"] as? String ?: ""
+            val backdrop = movie["backdrop_url"] as? String ?: ""
+            val plot = movie["overview"] as? String ?: ""
+            val year = (movie["year"] as? String)?.toIntOrNull()
+            val rating = (movie["rating"] as? String)?.toDoubleOrNull()
+            val duration = (movie["runtime"] as? String)?.toIntOrNull()
+            val director = movie["director"] as? String ?: ""
+            val genresStr = movie["genres"] as? String ?: ""
 
-            newMovieSearchResponse(title, "movie:$id", TvType.Movie, false) {
+            val encodedData = URLEncoder.encode(
+                "$title|$streamUrl|$poster|$backdrop|$plot|$year|$rating|$duration|$director|$genresStr",
+                "UTF-8"
+            )
+
+            newMovieSearchResponse(title, "data:$encodedData", TvType.Movie, false) {
                 this.posterUrl = poster
+                this.year = year
             }
         }
 
