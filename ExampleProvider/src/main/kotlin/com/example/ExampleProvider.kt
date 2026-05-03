@@ -22,13 +22,11 @@ class ExampleProvider : MainAPI() {
         "Referer" to mainUrl
     )
 
-    // Store movie data temporarily between search and load
     private val movieCache = mutableMapOf<String, Map<String, Any>>()
 
     override suspend fun search(query: String): List<SearchResponse> {
         val allMovies = mutableListOf<Map<String, Any>>()
 
-        // Fetch first 3 pages
         for (page in 1..3) {
             val url = "$apiEndpoint?page=$page"
             val response = app.get(url, headers = headers).text
@@ -38,7 +36,6 @@ class ExampleProvider : MainAPI() {
             if (movies.size < 12) break
         }
 
-        // Filter by query
         val filtered = allMovies.filter { movie ->
             val title = movie["title"] as? String ?: ""
             title.contains(query, ignoreCase = true)
@@ -50,7 +47,6 @@ class ExampleProvider : MainAPI() {
             val poster = movie["poster_url"] as? String ?: ""
             val year = (movie["year"] as? String)?.toIntOrNull()
 
-            // Cache the full movie data for later use in load()
             movieCache[id] = movie
 
             newMovieSearchResponse(title, "movie:$id", TvType.Movie, false) {
@@ -61,7 +57,6 @@ class ExampleProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        // Extract ID from our custom URL scheme "movie:$id"
         val id = url.removePrefix("movie:")
         val movie = movieCache[id] ?: throw Error("Movie data not found in cache")
 
@@ -70,7 +65,6 @@ class ExampleProvider : MainAPI() {
         val year = (movie["year"] as? String)?.toIntOrNull()
         val poster = movie["poster_url"] as? String ?: ""
         val backdrop = movie["backdrop_url"] as? String ?: ""
-        val rating = (movie["rating"] as? String)?.toDoubleOrNull()
         val duration = (movie["runtime"] as? String)?.toIntOrNull()
         val director = movie["director"] as? String ?: ""
         val genresStr = movie["genres"] as? String ?: ""
@@ -83,12 +77,10 @@ class ExampleProvider : MainAPI() {
             this.posterUrl = poster
             this.backgroundPosterUrl = backdrop
             this.duration = duration
-            if (director.isNotBlank()) {
-                this.tags = listOf("Director: $director")
-            }
-            if (genres.isNotEmpty()) {
-                this.genres = genres
-            }
+            val tagsList = mutableListOf<String>()
+            if (director.isNotBlank()) tagsList.add("Director: $director")
+            tagsList.addAll(genres)
+            if (tagsList.isNotEmpty()) this.tags = tagsList
         }
     }
 
@@ -98,7 +90,6 @@ class ExampleProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        // data contains the direct stream URL from load()
         val streamUrl = data
 
         val quality = when {
@@ -121,12 +112,11 @@ class ExampleProvider : MainAPI() {
         return true
     }
 
-    // Optional: Main page with categories
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = "$apiEndpoint?page=$page"
         val response = app.get(url, headers = headers).text
         val json = mapper.readValue<Map<String, Any>>(response)
-        val movies = json["data"] as? List<Map<String, Any>> ?: return HomePageResponse(listOf())
+        val movies = json["data"] as? List<Map<String, Any>> ?: return newHomePageResponse(listOf())
 
         val list = movies.mapNotNull { movie ->
             val id = movie["id"]?.toString() ?: return@mapNotNull null
@@ -139,6 +129,6 @@ class ExampleProvider : MainAPI() {
             }
         }
 
-        return HomePageResponse(listOf(HomePageList("Latest Movies", list)))
+        return newHomePageResponse(listOf(HomePageList("Latest Movies", list)))
     }
 }
