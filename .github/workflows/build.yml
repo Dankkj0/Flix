@@ -14,22 +14,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@master
+      - name: Checkout source code
+        uses: actions/checkout@v4
         with:
           path: "src"
-          fetch-depth: 0  # Needed to work with branches
+          fetch-depth: 0
 
-      - name: Create builds branch if missing (inside src repo)
+      - name: Create builds branch if it doesn't exist
         run: |
           cd $GITHUB_WORKSPACE/src
           git ls-remote --heads origin builds || git checkout --orphan builds
           git push origin builds --force || true
 
-      - name: Checkout builds branch into separate folder
+      - name: Checkout builds branch (or create empty worktree)
         run: |
           cd $GITHUB_WORKSPACE
-          git clone --branch builds --depth 1 https://github.com/${{ github.repository }} builds 2>/dev/null || git clone --depth 1 https://github.com/${{ github.repository }} builds
+          git clone --branch builds https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} builds || \
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} builds
           cd builds
           git checkout builds 2>/dev/null || git checkout --orphan builds
 
@@ -61,5 +62,5 @@ jobs:
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions"
           git add .
-          git commit -m "Build $GITHUB_SHA"
-          git push --force origin builds
+          git commit -m "Build ${{ github.sha }}"
+          git push --force --set-upstream https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} builds
