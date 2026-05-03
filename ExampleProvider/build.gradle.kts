@@ -3,11 +3,12 @@
 version = 1
 
 cloudstream {
-    description = "BDIX provider for local content"
-    authors = listOf("YourName")
+    // name is set in the Kotlin class, not here
+    description = "Stream movies from DhakaMovie BDIX"
+    authors = listOf("mpshimul")
     status = 1
     tvTypes = listOf("Movie", "TvSeries")
-    language = "en"
+    language = "bn"
     requiresResources = false
 }
 
