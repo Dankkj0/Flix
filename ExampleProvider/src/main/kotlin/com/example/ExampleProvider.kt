@@ -14,6 +14,7 @@ class ExampleProvider : MainAPI() {
     override val hasQuickSearch = true
 
     private val apiBaseUrl = "http://dhakamovie.com:8080/api/movies"
+    private val advancedSearchBase = "http://dhakamovie.com:8080/api/advanced-search"
     private val mapper = jacksonObjectMapper()
 
     companion object {
@@ -40,45 +41,29 @@ class ExampleProvider : MainAPI() {
         "Referer" to mainUrl
     )
 
-    // ---------------- Home Page Categories ----------------
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val homePageLists = mutableListOf<HomePageList>()
 
-        // 1. Latest Movies
         val latestMovies = fetchMovieList("$apiBaseUrl/latest")
-        if (latestMovies.isNotEmpty()) {
-            homePageLists.add(HomePageList("Latest Movies", latestMovies))
-        }
+        if (latestMovies.isNotEmpty()) homePageLists.add(HomePageList("Latest Movies", latestMovies))
 
-        // 2. New Releases
         val newReleases = fetchMovieList("$apiBaseUrl/new-releases")
-        if (newReleases.isNotEmpty()) {
-            homePageLists.add(HomePageList("New Releases", newReleases))
-        }
+        if (newReleases.isNotEmpty()) homePageLists.add(HomePageList("New Releases", newReleases))
 
-        // 3. South Indian Movies (Advanced Search)
-        val southIndianUrl = "$apiBaseUrl/advanced-search?query=&type=movies&page=1&per_page=28&category=South+Indian&order_by=Latest"
+        // South Indian - using correct base URL
+        val southIndianUrl = "$advancedSearchBase?query=&type=movies&page=1&per_page=28&category=South%20Indian&order_by=Latest"
         val southIndian = fetchMovieList(southIndianUrl)
-        if (southIndian.isNotEmpty()) {
-            homePageLists.add(HomePageList("South Indian", southIndian))
-        }
+        if (southIndian.isNotEmpty()) homePageLists.add(HomePageList("South Indian", southIndian))
 
-        // 4. Trending
         val trending = fetchMovieList("$apiBaseUrl/trending")
-        if (trending.isNotEmpty()) {
-            homePageLists.add(HomePageList("Trending", trending))
-        }
+        if (trending.isNotEmpty()) homePageLists.add(HomePageList("Trending", trending))
 
-        // 5. Top 10
         val top10 = fetchMovieList("$apiBaseUrl/top-10")
-        if (top10.isNotEmpty()) {
-            homePageLists.add(HomePageList("Top 10", top10))
-        }
+        if (top10.isNotEmpty()) homePageLists.add(HomePageList("Top 10", top10))
 
         return newHomePageResponse(homePageLists)
     }
 
-    // Helper function to fetch and convert movie list
     private suspend fun fetchMovieList(url: String): List<SearchResponse> {
         return try {
             val response = app.get(url, headers = headers).text
@@ -116,10 +101,8 @@ class ExampleProvider : MainAPI() {
         }
     }
 
-    // ---------------- Search ----------------
     override suspend fun search(query: String): List<SearchResponse> {
         val allMovies = mutableListOf<Map<String, Any>>()
-
         for (page in 1..2) {
             try {
                 val url = "$apiBaseUrl?page=$page"
@@ -128,9 +111,7 @@ class ExampleProvider : MainAPI() {
                 val movies = json["data"] as? List<Map<String, Any>> ?: break
                 allMovies.addAll(movies)
                 if (movies.size < 12) break
-            } catch (e: Exception) {
-                break
-            }
+            } catch (e: Exception) { break }
         }
 
         val filtered = if (query.isNotBlank() && query != "a") {
@@ -138,9 +119,7 @@ class ExampleProvider : MainAPI() {
                 val title = movie["title"] as? String ?: ""
                 title.contains(query, ignoreCase = true)
             }
-        } else {
-            allMovies
-        }
+        } else { allMovies }
 
         return filtered.mapNotNull { movie ->
             val slug = movie["slug"] as? String ?: return@mapNotNull null
@@ -157,12 +136,10 @@ class ExampleProvider : MainAPI() {
             val genres = genresStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
             val movieUrl = "$mainUrl/movies/$slug"
-
             movieStore[movieUrl] = MovieData(
                 slug, title, streamUrl, poster, backdrop, plot,
                 year, rating, duration, director, genres
             )
-
             newMovieSearchResponse(title, movieUrl, TvType.Movie, false) {
                 this.posterUrl = poster
                 this.year = year
@@ -170,29 +147,21 @@ class ExampleProvider : MainAPI() {
         }
     }
 
-    // ---------------- Load Movie Details ----------------
     override suspend fun load(url: String): LoadResponse {
         val movie = movieStore[url] ?: throw Error("Movie not found for URL: $url")
-
         return newMovieLoadResponse(movie.title, movie.streamUrl, TvType.Movie, movie.streamUrl) {
             this.plot = movie.plot
             this.year = movie.year
             this.posterUrl = movie.poster
             this.backgroundPosterUrl = movie.backdrop
             this.duration = movie.duration
-
             val tagsList = mutableListOf<String>()
-            if (movie.director.isNotBlank()) {
-                tagsList.add("Director: ${movie.director}")
-            }
+            if (movie.director.isNotBlank()) tagsList.add("Director: ${movie.director}")
             tagsList.addAll(movie.genres)
-            if (tagsList.isNotEmpty()) {
-                this.tags = tagsList
-            }
+            if (tagsList.isNotEmpty()) this.tags = tagsList
         }
     }
 
-    // ---------------- Extract Video Link ----------------
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -200,20 +169,14 @@ class ExampleProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val streamUrl = data
-
         val quality = when {
             streamUrl.contains("1080") -> 1080
             streamUrl.contains("720") -> 720
             streamUrl.contains("480") -> 480
             else -> 0
         }
-
         callback.invoke(
-            newExtractorLink(
-                source = name,
-                name = "Direct",
-                url = streamUrl
-            ) {
+            newExtractorLink(source = name, name = "Direct", url = streamUrl) {
                 this.referer = mainUrl
                 this.quality = quality
             }
