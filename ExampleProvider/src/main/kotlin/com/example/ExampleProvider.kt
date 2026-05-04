@@ -73,38 +73,41 @@ class ExampleProvider : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val lists = mutableListOf<HomePageList>()
 
-        // Helper to create a list safely
-        suspend fun addList(name: String, url: String) {
-            val items = fetchMovieList(url)
-            if (items.isNotEmpty()) lists.add(HomePageList(name, items))
-        }
+        // All Movies (advanced search, 1000 items)
+        val allMoviesUrl = "$advancedSearchBase?query=&type=movies&page=1&per_page=1000&order_by=Latest"
+        val allMovies = fetchMovieList(allMoviesUrl)
+        if (allMovies.isNotEmpty()) lists.add(HomePageList("All Movies (1000+)", allMovies))
 
-        // All Movies (advanced search, up to 1000)
-        addList("All Movies (1000+)", "$advancedSearchBase?query=&type=movies&page=1&per_page=1000&order_by=Latest")
+        // Latest Movies (static)
+        val latest = fetchMovieList("$apiMoviesBase/latest")
+        if (latest.isNotEmpty()) lists.add(HomePageList("Latest Movies", latest))
 
-        // Latest Movies
-        addList("Latest Movies", "$apiMoviesBase/latest")
+        // New Releases (static)
+        val newReleases = fetchMovieList("$apiMoviesBase/new-releases")
+        if (newReleases.isNotEmpty()) lists.add(HomePageList("New Releases", newReleases))
 
-        // New Releases
-        addList("New Releases", "$apiMoviesBase/new-releases")
-
-        // TV Series (advanced search, up to 1000, basic info)
-        val tvSeriesBasic = fetchSeriesBasicList("$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&order_by=Latest")
+        // TV Series (advanced search, 1000 items – basic info only)
+        val tvSeriesUrl = "$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&order_by=Latest"
+        val tvSeriesBasic = fetchSeriesBasicList(tvSeriesUrl)
         if (tvSeriesBasic.isNotEmpty()) lists.add(HomePageList("TV Series (1000+)", tvSeriesBasic))
 
-        // South Indian
-        addList("South Indian (1000+)", "$advancedSearchBase?query=&type=movies&page=1&per_page=1000&category=South%20Indian&order_by=Latest")
+        // South Indian (advanced search, 1000 items)
+        val southIndianUrl = "$advancedSearchBase?query=&type=movies&page=1&per_page=1000&category=South%20Indian&order_by=Latest"
+        val southIndian = fetchMovieList(southIndianUrl)
+        if (southIndian.isNotEmpty()) lists.add(HomePageList("South Indian (1000+)", southIndian))
 
-        // Trending
-        addList("Trending", "$apiMoviesBase/trending")
+        // Trending (static)
+        val trending = fetchMovieList("$apiMoviesBase/trending")
+        if (trending.isNotEmpty()) lists.add(HomePageList("Trending", trending))
 
-        // Top 10
-        addList("Top 10", "$apiMoviesBase/top-10")
+        // Top 10 (static)
+        val top10 = fetchMovieList("$apiMoviesBase/top-10")
+        if (top10.isNotEmpty()) lists.add(HomePageList("Top 10", top10))
 
         return newHomePageResponse(lists)
     }
 
-    // ---------- Fetch movies – ENSURES DETAIL URL, NOT STREAM URL ----------
+    // ---------- Fetch movies (works with advanced search and regular endpoints) ----------
     private suspend fun fetchMovieList(baseUrl: String): List<SearchResponse> {
         return try {
             val response = app.get(baseUrl, headers = headers).text
@@ -133,8 +136,7 @@ class ExampleProvider : MainAPI() {
                 val genresStr = movie["genres"] as? String ?: ""
                 val genres = genresStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-                // CRITICAL: Use DETAIL URL, NOT streamUrl
-                val detailUrl = "$mainUrl/movie/$slug"
+                val detailUrl = "$mainUrl/movie/$slug"      // Use a fake but consistent URL
                 movieStore[detailUrl] = MovieData(
                     slug, title, streamUrl, fullPoster, backdrop, plot,
                     year, rating, duration, director, genres
@@ -278,18 +280,18 @@ class ExampleProvider : MainAPI() {
         }
     }
 
-    // ---------- Load details (movie or series) ----------
+    // ---------- Load details (distinguish between movie and series) ----------
     override suspend fun load(url: String): LoadResponse {
         // Guard against direct video URLs (should never happen)
         if (url.startsWith("http://server1.dhakamovie.com")) {
             throw Error("Direct video URL passed to load() – this is a bug. URL: $url")
         }
 
-        // TV series detail page
+        // TV series detail page (URL: http://dhakamovie.com:8080/api/tv-series/{slug})
         if (url.startsWith(apiTvSeriesBase)) {
             val slug = url.removePrefix(apiTvSeriesBase).removePrefix("/")
             val series = fetchFullSeries(slug) ?: throw Error("Could not fetch series details")
-            val seriesUrl = "$mainUrl/tv/${series.slug}"
+            val seriesUrl = "$mainUrl/tv/${series.slug}" // not used further, but stored
             seriesStore[seriesUrl] = series
 
             val episodes = mutableListOf<Episode>()
@@ -309,6 +311,7 @@ class ExampleProvider : MainAPI() {
                     episodeStore[episodeUrl] = ep.filePath
                 }
             }
+
             return newTvSeriesLoadResponse(series.title, seriesUrl, TvType.TvSeries, episodes) {
                 this.plot = series.plot
                 this.year = series.year
@@ -318,7 +321,7 @@ class ExampleProvider : MainAPI() {
             }
         }
 
-        // Movie detail page
+        // Movie detail page (URL: http://dhakamovie.com/movie/{slug})
         if (movieStore.containsKey(url)) {
             val movie = movieStore[url]!!
             return newMovieLoadResponse(movie.title, movie.streamUrl, TvType.Movie, movie.streamUrl) {
@@ -337,14 +340,14 @@ class ExampleProvider : MainAPI() {
         throw Error("Unknown URL type: $url")
     }
 
-    // ---------- Extract video links ----------
+    // ---------- Extract video links (movie or episode) ----------
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        // Handle episode-data: scheme
+        // TV episode – using your working "episode-data:" scheme
         if (data.startsWith("episode-data:")) {
             val filePath = episodeStore[data] ?: return false
             val streamUrl = "http://server1.dhakamovie.com/$filePath"
@@ -367,7 +370,7 @@ class ExampleProvider : MainAPI() {
             return true
         }
 
-        // Handle direct movie stream URL
+        // Movie direct stream URL
         val quality = when {
             data.contains("1080") -> 1080
             data.contains("720") -> 720
