@@ -292,9 +292,10 @@ class ExampleProvider : MainAPI() {
 
             val episodes = mutableListOf<Episode>()
             for (seasonData in series.seasons) {
+                // In your `load()` function for TV series:
                 for (ep in seasonData.episodes) {
-                    // Use a custom scheme WITHOUT slashes to avoid URL mangling
-                    val episodeUrl = "episode:${series.slug}/${seasonData.seasonNumber}/${ep.episodeNumber}"
+                    // Create a data: URI that contains the episode info in its path
+                    val episodeUrl = "data:episode,${series.slug}/${seasonData.seasonNumber}/${ep.episodeNumber}"
                     episodes.add(
                         newEpisode(episodeUrl) {
                             name = ep.title
@@ -343,9 +344,9 @@ class ExampleProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        // TV episode - match "episode:slug/season/episode"
-        if (data.startsWith("episode:")) {
-            val episodePattern = Regex("episode:(.+)/(\\d+)/(\\d+)")
+        // TV episode - match "data:episode,slug/season/episode"
+        if (data.startsWith("data:episode,")) {
+            val episodePattern = Regex("data:episode,([^/]+)/(\\d+)/(\\d+)")
             val match = episodePattern.find(data)
             if (match != null) {
                 val filePath = episodeStore[data] ?: return false
