@@ -85,8 +85,8 @@ class ExampleProvider : MainAPI() {
         val newReleases = fetchMovieList("$apiMoviesBase/new-releases", 1)
         if (newReleases.isNotEmpty()) lists.add(HomePageList("New Releases", newReleases))
 
-        // 4. TV Series (advanced search, 1000 items)
-        val tvSeriesUrl = "$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&order_by=Latest"
+        // 4. TV Series (regular endpoint with per_page=1000, full data)
+        val tvSeriesUrl = "$apiTvBase?page=1&per_page=1000"
         val tvSeries = fetchSeriesList(tvSeriesUrl, 1)
         if (tvSeries.isNotEmpty()) lists.add(HomePageList("TV Series (1000+)", tvSeries))
 
@@ -107,20 +107,20 @@ class ExampleProvider : MainAPI() {
     }
 
     // ------------------------------------------------------------
-    // Fetch movies (supports advanced search with per_page)
+    // Fetch movies (works with both advanced search and regular endpoints)
     // ------------------------------------------------------------
     private suspend fun fetchMovieList(baseUrl: String, page: Int = 1): List<SearchResponse> {
-        // The URL already contains page and per_page parameters; we ignore the 'page' argument
-        // because we use the URL as is (with page=1 and per_page=1000).
         return try {
             val response = app.get(baseUrl, headers = headers).text
             val json = mapper.readValue<Map<String, Any>>(response)
 
             val movies = if (json.containsKey("results")) {
+                // Advanced search response
                 val results = json["results"] as? Map<String, Any>
                 val moviesObj = results?.get("movies") as? Map<String, Any>
                 moviesObj?.get("data") as? List<Map<String, Any>> ?: emptyList()
             } else {
+                // Regular API response
                 json["data"] as? List<Map<String, Any>> ?: emptyList()
             }
 
@@ -128,9 +128,10 @@ class ExampleProvider : MainAPI() {
                 val slug = movie["slug"] as? String ?: return@mapNotNull null
                 val title = movie["title"] as? String ?: return@mapNotNull null
                 val poster = movie["poster_url"] as? String ?: movie["image"] as? String ?: ""
+                val fullPoster = if (poster.startsWith("/")) "$mainUrl:8080$poster" else poster
                 val year = (movie["year"] as? String)?.toIntOrNull()
                 val streamUrl = movie["stream_url"] as? String ?: ""
-                val backdrop = movie["backdrop_url"] as? String ?: poster
+                val backdrop = movie["backdrop_url"] as? String ?: fullPoster
                 val plot = movie["overview"] as? String ?: "No plot available"
                 val rating = (movie["rating"] as? String)?.toDoubleOrNull()
                 val duration = (movie["runtime"] as? String)?.toIntOrNull()
@@ -140,12 +141,12 @@ class ExampleProvider : MainAPI() {
 
                 val movieUrl = "$mainUrl/movies/$slug"
                 movieStore[movieUrl] = MovieData(
-                    slug, title, streamUrl, poster, backdrop, plot,
+                    slug, title, streamUrl, fullPoster, backdrop, plot,
                     year, rating, duration, director, genres
                 )
 
                 newMovieSearchResponse(title, movieUrl, TvType.Movie, false) {
-                    this.posterUrl = poster
+                    this.posterUrl = fullPoster
                     this.year = year
                 }
             }
@@ -155,21 +156,13 @@ class ExampleProvider : MainAPI() {
     }
 
     // ------------------------------------------------------------
-    // Fetch TV series (supports advanced search with per_page)
+    // Fetch TV series (regular API endpoint, returns full data)
     // ------------------------------------------------------------
     private suspend fun fetchSeriesList(baseUrl: String, page: Int = 1): List<SearchResponse> {
         return try {
             val response = app.get(baseUrl, headers = headers).text
             val json = mapper.readValue<Map<String, Any>>(response)
-
-            // Advanced search for tv_series returns results in the same structure
-            val seriesList = if (json.containsKey("results")) {
-                val results = json["results"] as? Map<String, Any>
-                val seriesObj = results?.get("tv_series") as? Map<String, Any>
-                seriesObj?.get("data") as? List<Map<String, Any>> ?: emptyList()
-            } else {
-                json["data"] as? List<Map<String, Any>> ?: emptyList()
-            }
+            val seriesList = json["data"] as? List<Map<String, Any>> ?: return emptyList()
 
             seriesList.mapNotNull { series ->
                 val id = series["id"] as? Int ?: return@mapNotNull null
@@ -226,10 +219,9 @@ class ExampleProvider : MainAPI() {
     }
 
     // ------------------------------------------------------------
-    // Search (Movies only, can also use advanced search if needed)
+    // Search (Movies only, simple pagination to 2 pages)
     // ------------------------------------------------------------
     override suspend fun search(query: String): List<SearchResponse> {
-        // Use advanced search for better results? But keep simple for now.
         val allMovies = mutableListOf<Map<String, Any>>()
         for (page in 1..2) {
             try {
@@ -255,9 +247,10 @@ class ExampleProvider : MainAPI() {
             val slug = movie["slug"] as? String ?: return@mapNotNull null
             val title = movie["title"] as? String ?: return@mapNotNull null
             val poster = movie["poster_url"] as? String ?: ""
+            val fullPoster = if (poster.startsWith("/")) "$mainUrl:8080$poster" else poster
             val year = (movie["year"] as? String)?.toIntOrNull()
             val streamUrl = movie["stream_url"] as? String ?: ""
-            val backdrop = movie["backdrop_url"] as? String ?: poster
+            val backdrop = movie["backdrop_url"] as? String ?: fullPoster
             val plot = movie["overview"] as? String ?: "No plot available"
             val rating = (movie["rating"] as? String)?.toDoubleOrNull()
             val duration = (movie["runtime"] as? String)?.toIntOrNull()
@@ -267,11 +260,11 @@ class ExampleProvider : MainAPI() {
 
             val movieUrl = "$mainUrl/movies/$slug"
             movieStore[movieUrl] = MovieData(
-                slug, title, streamUrl, poster, backdrop, plot,
+                slug, title, streamUrl, fullPoster, backdrop, plot,
                 year, rating, duration, director, genres
             )
             newMovieSearchResponse(title, movieUrl, TvType.Movie, false) {
-                this.posterUrl = poster
+                this.posterUrl = fullPoster
                 this.year = year
             }
         }
