@@ -1,58 +1,47 @@
-**⚠️ This is currently under development, dont use it yet if you're not comfortable with constantly merging new changes**
+# BDIX CloudStream Extensions
 
-# `Cloudstream3 Plugin Repo Template`
+[![Build](https://github.com/mpshimul/bdix-cloudstream-extensions/actions/workflows/build.yml/badge.svg)](https://github.com/mpshimul/bdix-cloudstream-extensions/actions/workflows/build.yml)
 
-Template for a [Cloudstream3](https://github.com/recloudstream) plugin repo
+CloudStream extension for **DhakaMovie** – a BDIX movie and TV series streaming site.
 
-**⚠️ Make sure you check "Include all branches" when using this template**
+## 📱 Features
 
- 
-## Getting started with writing your first plugin
+- ✅ **Movies** – Browse 1000+ latest, trending, top‑10 movies, plus categories:
+  - South Indian, Netflix, Prime, Hindi, Hollywood, Indian Bangla
+- ✅ **TV Series** – 1000+ series with full seasons and episodes
+- ✅ **Direct playback** – No external player required
+- ✅ **Fake detail URLs** – Opens info page before playing (no accidental playback)
 
-This template includes 1 example plugin.
+## 📦 Installation
 
-1. Open the root build.gradle.kts, read the comments and replace all the placeholders
-2. Familiarize yourself with the project structure. Most files are commented
-3. Build or deploy your first plugin using:
-   - Windows: `.\gradlew.bat ExampleProvider:make` or `.\gradlew.bat ExampleProvider:deployWithAdb`
-   - Linux & Mac: `./gradlew ExampleProvider:make` or `./gradlew ExampleProvider:deployWithAdb`
+1. **Add repository to CloudStream**  
+   Open CloudStream → **Settings** → **Extensions** → **Add Repository**  
+   Enter the URL: https://raw.githubusercontent.com/mpshimul/bdix-cloudstream-extensions/master/repo.json
+   Give it a name (e.g., "BDIX Repo").
 
+2. **Install extension**  
+Tap on the newly added repository → **Install** next to **DhakaMovie BDIX**.
 
-## Granting All Files Access on Newer Android Devices
+3. **Start streaming**  
+Go back to the home screen, choose a category (All Movies, TV Series, etc.), and enjoy.
 
-For local plugin testing, you need to grant the app "All Files Access" on newer Android devices (Android 11 and above). Here’s how to do it:
+## 🧪 Requirements
 
-### Using ADB
+- CloudStream app version: **latest** from [official GitHub releases](https://github.com/recloudstream/cloudstream/releases)
+- Android device (phone/ Android TV)
 
-* `adb shell appops set --uid PACKAGE_NAME MANAGE_EXTERNAL_STORAGE allow`
-* Replace `PACKAGE_NAME` with the name of the package for the Cloudstream3 version you are using:
-   - debug: `com.lagradost.cloudstream3.prerelease.debug`
-   - prerelease: `com.lagradost.cloudstream3.prerelease`
-   - stable: `com.lagradost.cloudstream3`
+## 🙏 Disclaimer
 
-### Manually
+This extension does **not** host any copyrighted content. It only fetches publicly available links from `dhakamovie.com`. Users are responsible for complying with local laws.
 
-1. **Open Settings**: Go to your device’s Settings menu.
+## 🛠️ Development
 
-2. **Navigate to Special Access**:
-   - Tap on "Apps & notifications" or "Apps".
-   - Select "Special app access" or "Special access".
+Clone the repository and open in Android Studio. Build with:
+```bash
+./gradlew :DhakaMovieProvider:make
 
-3. **Select All Files Access**:
-   - Tap on "All files access".
-   - It may be under the three vertical dots menu towards the top of the screen.
+Plugin entry point: DhakaMoviePlugin.kt
+Provider logic: DhakaMovieProvider.kt
 
-4. **Grant Access to the App**: Find the app in the list and tap on it to toggle it, if it is not already enabled.
-
-6. **Restart the App**: Close and reopen the app to apply the changes.
-
-
-## License
-
-Everything in this repo is released into the public domain. You may use it however you want with no conditions whatsoever
-
-
-## Attribution
-
-This template as well as the gradle plugin and the whole plugin system is **heavily** based on [Aliucord](https://github.com/Aliucord).
-*Go use it, it's a great mobile discord client mod!*
+📝 License
+MIT – Free to use and modify.
