@@ -4,6 +4,7 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import java.net.URLEncoder
 
 @Suppress("UNCHECKED_CAST")
 class ExampleProvider : MainAPI() {
@@ -67,65 +68,80 @@ class ExampleProvider : MainAPI() {
         "Referer" to mainUrl
     )
 
-    // No getFeatured override – the base class does not have it in this version
-
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val lists = mutableListOf<HomePageList>()
 
+        // All Movies (advanced search, up to 1000)
         val allMovies = fetchMovies("$advancedSearchBase?query=&type=movies&page=1&per_page=1000&order_by=Latest")
         if (allMovies.isNotEmpty()) lists.add(HomePageList("All Movies (1000+)", allMovies))
 
+        // TV Series (advanced search, up to 1000)
         val tvSeries = fetchSeries("$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&order_by=Latest")
         if (tvSeries.isNotEmpty()) lists.add(HomePageList("TV Series (1000+)", tvSeries))
 
+        // Latest Movies
         val latest = fetchMovies("$apiMoviesBase/latest")
         if (latest.isNotEmpty()) lists.add(HomePageList("Latest Movies", latest))
 
+        // New Releases
         val newReleases = fetchMovies("$apiMoviesBase/new-releases")
         if (newReleases.isNotEmpty()) lists.add(HomePageList("New Releases", newReleases))
 
+        // Trending
         val trending = fetchMovies("$apiMoviesBase/trending")
         if (trending.isNotEmpty()) lists.add(HomePageList("Trending", trending))
 
+        // Top 10
         val top10 = fetchMovies("$apiMoviesBase/top-10")
         if (top10.isNotEmpty()) lists.add(HomePageList("Top 10", top10))
 
+        // South Indian Movies
         val southIndian = fetchMovies("$advancedSearchBase?query=&type=movies&page=1&per_page=1000&category=South%20Indian&order_by=Latest")
         if (southIndian.isNotEmpty()) lists.add(HomePageList("South Indian Movies", southIndian))
 
+        // Korean TV Series
         val tvSeriesKor = fetchSeries("$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&category=Korean&order_by=Latest")
         if (tvSeriesKor.isNotEmpty()) lists.add(HomePageList("Korean TV Series", tvSeriesKor))
 
+        // Netflix Movies
         val movieNetflix = fetchMovies("$advancedSearchBase?query=&type=movies&page=1&per_page=1000&category=Netflix&order_by=Latest")
         if (movieNetflix.isNotEmpty()) lists.add(HomePageList("NetFlix Movies", movieNetflix))
 
+        // Netflix TV Series
         val tvSeriesNetflix = fetchSeries("$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&category=Netflix&order_by=Latest")
         if (tvSeriesNetflix.isNotEmpty()) lists.add(HomePageList("NetFlix TV Series", tvSeriesNetflix))
 
+        // Prime Movies
         val moviePrime = fetchMovies("$advancedSearchBase?query=&type=movies&page=1&per_page=1000&category=Prime&order_by=Latest")
         if (moviePrime.isNotEmpty()) lists.add(HomePageList("Prime Movies", moviePrime))
 
+        // Prime TV Series
         val tvSeriesPrime = fetchSeries("$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&category=Prime&order_by=Latest")
         if (tvSeriesPrime.isNotEmpty()) lists.add(HomePageList("Prime TV Series", tvSeriesPrime))
 
+        // Hindi Movies
         val hindiMovie = fetchMovies("$advancedSearchBase?query=&type=movies&page=1&per_page=1000&category=Bollywood&order_by=Latest")
         if (hindiMovie.isNotEmpty()) lists.add(HomePageList("Hindi Movies", hindiMovie))
 
+        // Hindi TV Series
         val tvSeriesHindi = fetchSeries("$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&category=Hindi&order_by=Latest")
         if (tvSeriesHindi.isNotEmpty()) lists.add(HomePageList("Hindi TV Series", tvSeriesHindi))
 
+        // Hollywood Movies
         val hollywoodMovie = fetchMovies("$advancedSearchBase?query=&type=movies&page=1&per_page=1000&category=Hollywood&order_by=Latest")
         if (hollywoodMovie.isNotEmpty()) lists.add(HomePageList("Hollywood Movies", hollywoodMovie))
 
+        // Hollywood TV Series
         val tvSeriesHollywood = fetchSeries("$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&category=English&order_by=Latest")
         if (tvSeriesHollywood.isNotEmpty()) lists.add(HomePageList("Hollywood TV Series", tvSeriesHollywood))
 
+        // Indian Bangla Movies
         val IndianBanglaMovie = fetchMovies("$advancedSearchBase?query=&type=movies&page=1&per_page=1000&category=Indian+Bangla&order_by=Latest")
         if (IndianBanglaMovie.isNotEmpty()) lists.add(HomePageList("Indian Bangla Movies", IndianBanglaMovie))
 
+        // Indian Bangla TV Series
         val tvSeriesIndianBangla = fetchSeries("$advancedSearchBase?query=&type=tv_series&page=1&per_page=1000&category=Indian+Bangla&order_by=Latest")
         if (tvSeriesIndianBangla.isNotEmpty()) lists.add(HomePageList("Indian Bangla TV Series", tvSeriesIndianBangla))
-
 
         return newHomePageResponse(lists)
     }
@@ -172,7 +188,6 @@ class ExampleProvider : MainAPI() {
                 newMovieSearchResponse(title, fakeUrl, TvType.Movie, false) {
                     this.posterUrl = fullPoster
                     this.year = year
-                    // optionally set background poster if field exists, but skip to avoid compile error
                 }
             }
         } catch (e: Exception) {
@@ -211,8 +226,10 @@ class ExampleProvider : MainAPI() {
         }
     }
 
+    // Fetch full series details – with URL‑encoded slug
     private suspend fun fetchFullSeries(slug: String): SeriesData? {
-        val url = "$apiTvSeriesBase/$slug"
+        val encodedSlug = URLEncoder.encode(slug, "UTF-8")
+        val url = "$apiTvSeriesBase/$encodedSlug"
         return try {
             val response = app.get(url, headers = headers).text
             val series = mapper.readValue<Map<String, Any>>(response)
@@ -271,12 +288,13 @@ class ExampleProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
+        // If a direct video URL somehow reaches here, throw error to debug
         if (url.startsWith("http://server1.dhakamovie.com")) {
             throw Error("Direct video URL passed to load() – bug. URL: $url")
         }
         if (url.startsWith("http://tv.local/")) {
             val slug = url.removePrefix("http://tv.local/")
-            val series = fetchFullSeries(slug) ?: throw Error("Series not found")
+            val series = fetchFullSeries(slug) ?: throw Error("Series not found: $slug")
             val seriesUrl = "http://tv.local/${series.title}"
             seriesStore[seriesUrl] = series
 
