@@ -1,10 +1,155 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta http-equiv="refresh" content="0; url=cloudstream://addRepository?url=https://raw.githubusercontent.com/mpshimul/bdix-cloudstream-extensions/master/repo.json">
-    <title>Redirecting...</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Redirecting to CloudStream...</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            border-radius: 2rem;
+            padding: 2rem 1.5rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+            transition: transform 0.2s ease;
+        }
+
+        .card:hover {
+            transform: scale(1.01);
+        }
+
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            color: white;
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.3px;
+        }
+
+        .sub {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid #ff8c00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info {
+            color: #ddd;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.4;
+        }
+
+        .manual-link {
+            display: inline-block;
+            background: #ff8c00;
+            color: #1a1a2e;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .manual-link:hover {
+            background: #ffaa33;
+            transform: translateY(-2px);
+        }
+
+        .manual-link:active {
+            transform: translateY(1px);
+        }
+
+        .footer {
+            margin-top: 2rem;
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .repo-url {
+            background: rgba(0,0,0,0.3);
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.7rem;
+            word-break: break-all;
+            margin-top: 1rem;
+            color: #bbb;
+        }
+    </style>
 </head>
 <body>
-<p>If you are not redirected, <a href="cloudstream://addRepository?url=https://raw.githubusercontent.com/mpshimul/bdix-cloudstream-extensions/master/repo.json">click here</a>.</p>
+<div class="card">
+    <div class="logo">📺</div>
+    <h1>Redirecting to CloudStream</h1>
+    <div class="sub">Opening BDIX repository installer...</div>
+
+    <div class="spinner"></div>
+
+    <div class="info">
+        If CloudStream doesn't open automatically, tap the button below.
+    </div>
+
+    <a href="cloudstream://addRepository?url=https://raw.githubusercontent.com/mpshimul/bdix-cloudstream-extensions/master/repo.json"
+       class="manual-link">
+        📥 Open CloudStream
+    </a>
+
+    <div class="repo-url">
+        Repo URL: bdix-cloudstream-extensions
+    </div>
+
+    <div class="footer">
+        Make sure CloudStream is installed on your device.
+    </div>
+</div>
+
+<script>
+    // Auto-redirect after 1 second
+    setTimeout(function() {
+        window.location.href = "cloudstream://addRepository?url=https://raw.githubusercontent.com/mpshimul/bdix-cloudstream-extensions/master/repo.json";
+    }, 1000);
+</script>
 </body>
 </html>
