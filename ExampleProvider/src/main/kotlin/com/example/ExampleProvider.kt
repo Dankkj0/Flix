@@ -58,26 +58,26 @@ class ExampleProvider : MainAPI() {
         if (featured.isNotEmpty()) lists.add(HomePageList("Featured", featured))
 
         val movieRows = listOf(
-            "Latest Movies" to "$apiMoviesBase/latest",
+            "Latest Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=28&order_by=Latest",
             "New Releases" to "$apiMoviesBase/new-releases",
             "Trending" to "$apiMoviesBase/trending",
             "Top 10" to "$apiMoviesBase/top-10",
-            "South Indian Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=50&category=South%20Indian&order_by=Latest",
-            "NetFlix Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=50&category=Netflix&order_by=Latest",
-            "Prime Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=50&category=Prime&order_by=Latest",
-            "Hindi Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=50&category=Bollywood&order_by=Latest",
-            "Hollywood Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=50&category=Hollywood&order_by=Latest",
-            "Indian Bangla Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=50&category=Indian+Bangla&order_by=Latest"
+            "South Indian Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=700&category=South%20Indian&order_by=Latest",
+            "NetFlix Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=700&category=Netflix&order_by=Latest",
+            "Prime Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=700&category=Prime&order_by=Latest",
+            "Hindi Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=700&category=Bollywood&order_by=Latest",
+            "Hollywood Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=700&category=Hollywood&order_by=Latest",
+            "Indian Bangla Movies" to "$advancedSearchBase?query=&type=movies&page=1&per_page=700&category=Indian+Bangla&order_by=Latest"
         )
 
         val seriesRows = listOf(
-            "TV Series (Latest)" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=50&order_by=Latest",
-            "Korean TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=50&category=Korean&order_by=Latest",
-            "NetFlix TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=50&category=Netflix&order_by=Latest",
-            "Prime TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=50&category=Prime&order_by=Latest",
-            "Hindi TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=50&category=Hindi&order_by=Latest",
-            "Hollywood TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=50&category=English&order_by=Latest",
-            "Indian Bangla TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=50&category=Indian+Bangla&order_by=Latest"
+            "TV Series (Latest)" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=700&order_by=Latest",
+            "Korean TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=700&category=Korean&order_by=Latest",
+            "NetFlix TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=700&category=Netflix&order_by=Latest",
+            "Prime TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=700&category=Prime&order_by=Latest",
+            "Hindi TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=700&category=Hindi&order_by=Latest",
+            "Hollywood TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=700&category=English&order_by=Latest",
+            "Indian Bangla TV Series" to "$advancedSearchBase?query=&type=tv_series&page=1&per_page=700&category=Indian+Bangla&order_by=Latest"
         )
 
         movieRows.forEach { (name, url) ->
@@ -203,7 +203,6 @@ class ExampleProvider : MainAPI() {
             else -> 0
         }
 
-        // Corrected newExtractorLink syntax: properties are set INSIDE the lambda block
         callback.invoke(
             newExtractorLink(
                 source = this.name,
@@ -228,17 +227,17 @@ class ExampleProvider : MainAPI() {
                     val prop = e["property"] as? Map<String, Any>
                     val fPath = (prop?.get("file_path") as? String)?.removePrefix("server1/") ?: return@mapNotNull null
                     EpisodeData(
-                        title = e["title"] as? String ?: "Ep",
+                        title = e["title"] as? String ?: "Episode ${e["episode_number"]}",
                         episodeNumber = e["episode_number"] as? Int ?: 1,
                         filePath = fPath,
                         runtime = prop["runtime"] as? Int,
-                        poster = (series["poster_url"] as? String) ?: ""
+                        poster = e["poster_url"] as? String ?: (series["poster_url"] as? String ?: "")
                     )
                 })
             }
             SeriesData(
                 title = series["title"] as? String ?: "Unknown",
-                poster = (series["poster_url"] as? String) ?: "",
+                poster = (series["poster_url"] as? String ?: "").let { if (it.startsWith("/")) "$mainUrl:8080$it" else it },
                 backdrop = "",
                 plot = series["overview"] as? String ?: "",
                 year = (series["year"] as? String)?.toIntOrNull(),
@@ -250,6 +249,13 @@ class ExampleProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        return fetchMovies("$apiMoviesBase?query=${URLEncoder.encode(query, "UTF-8")}")
+        // The regular API doesn't support ?query=, so fetch two pages and filter locally
+        val allMovies = mutableListOf<SearchResponse>()
+        for (page in 1..2) {
+            val results = fetchMovies("$apiMoviesBase?page=$page")
+            allMovies.addAll(results)
+            if (results.size < 12) break
+        }
+        return allMovies.filter { it.name?.contains(query, ignoreCase = true) == true }
     }
 }
