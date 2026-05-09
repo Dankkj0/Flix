@@ -1,5 +1,12 @@
 version = 1
 
+plugins {
+    id("com.android.library")
+    id("kotlin-android")
+}
+
+version = 1
+
 cloudstream {
     //name = "Fmftp BDIX"
     description = "Movies from fmftp.net – Hollywood, Bollywood, Hindi Dubbed, Indian Bangla"
@@ -12,26 +19,7 @@ cloudstream {
 
 android {
     namespace = "com.fmftp"
-    compileSdk = 35
-
-    defaultConfig {
-        minSdk = 21
-        //targetSdk = 35
-    }
-
-    buildFeatures {
-        buildConfig = true
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = "1.8"
-        freeCompilerArgs = freeCompilerArgs + "-Xskip-metadata-version-check"
-    }
+    // No compileOptions or kotlinOptions needed here – they are inherited from the root
 }
 
 dependencies {
