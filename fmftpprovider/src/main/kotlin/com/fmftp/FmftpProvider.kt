@@ -49,7 +49,7 @@ class FmftpProvider : MainAPI() {
             val results = movies.mapNotNull { movie ->
                 val id = movie["id"]?.toString() ?: return@mapNotNull null
                 val title = movie["title"] as? String ?: return@mapNotNull null
-                val year = (movie["year"] as? String)?.toIntOrNull()
+                val year = (movie["year"] as? Int) ?: (movie["year"] as? String)?.toIntOrNull()
                 val plot = movie["overview"] as? String ?: ""
                 val rating = (movie["online_rating"] as? Number)?.toDouble()
                 val genreStr = movie["genre"] as? String ?: ""
@@ -61,15 +61,15 @@ class FmftpProvider : MainAPI() {
                 val libraryObj = movie["Library"] as? Map<String, Any>
                 val libraryName = libraryObj?.get("name") as? String ?: "Unknown"
 
-                // Handle poster and backdrop: could be absolute or relative
-                var poster = movie["poster_url"] as? String ?: ""
-                if (poster.isNotEmpty() && !poster.startsWith("http")) {
-                    poster = if (poster.startsWith("/")) "$mainUrl$poster" else "$mainUrl/$poster"
-                }
-                var backdrop = movie["backdrop_url"] as? String ?: ""
-                if (backdrop.isNotEmpty() && !backdrop.startsWith("http")) {
-                    backdrop = if (backdrop.startsWith("/")) "$mainUrl$backdrop" else "$mainUrl/$backdrop"
-                }
+                // Build poster and backdrop URLs using the correct base paths
+                val posterPath = movie["poster_path"] as? String ?: ""
+                val backdropPath = movie["backdrop_path"] as? String ?: ""
+                val poster = if (posterPath.isNotEmpty()) {
+                    "https://fmftp.net/content-images/movies/posters/${posterPath.removePrefix("/")}"
+                } else ""
+                val backdrop = if (backdropPath.isNotEmpty()) {
+                    "https://fmftp.net/content-images/movies/backdrops/${backdropPath.removePrefix("/")}"
+                } else ""
 
                 val detailUrl = "http://fmftp.local/$id"
                 movieStore[detailUrl] = MovieData(
@@ -92,26 +92,20 @@ class FmftpProvider : MainAPI() {
         val allMovies = fetchAllMovies()
         if (allMovies.isEmpty()) return newHomePageResponse(emptyList())
 
-        // Group movies by library name
         val grouped = allMovies.groupBy { movie ->
             movieStore[movie.url]?.library ?: "Unknown"
         }
 
         val lists = mutableListOf<HomePageList>()
 
-        // 1. Latest Movies (first 30 items of all)
         val latest = allMovies.take(30)
         if (latest.isNotEmpty()) lists.add(HomePageList("Latest Movies", latest))
 
-        // 2. Hollywood
-        grouped["Hollywood"]?.let { lists.add(HomePageList("Hollywood Movies", it)) }
-        // 3. Bollywood
+        // Match library names exactly as they appear in JSON: "Bollywood", "Hollywood", "Hindi dubbed", "Indian Bangla", "Animation"
         grouped["Bollywood"]?.let { lists.add(HomePageList("Bollywood Movies", it)) }
-        // 4. Hindi dubbed
+        grouped["Hollywood"]?.let { lists.add(HomePageList("Hollywood Movies", it)) }
         grouped["Hindi dubbed"]?.let { lists.add(HomePageList("Hindi Dubbed Movies", it)) }
-        // 5. Indian Bangla
         grouped["Indian Bangla"]?.let { lists.add(HomePageList("Bangla Movies", it)) }
-        // 6. Animation
         grouped["Animation"]?.let { lists.add(HomePageList("Animation Movies", it)) }
 
         return newHomePageResponse(lists)
