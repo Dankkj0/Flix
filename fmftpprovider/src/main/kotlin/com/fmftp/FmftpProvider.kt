@@ -13,7 +13,6 @@ class FmftpProvider : MainAPI() {
     override val hasMainPage = true
     override val hasQuickSearch = true
 
-    private val apiUrl = "$mainUrl/api/movies?limit=2000&sort=release_date"
     private val mapper = jacksonObjectMapper()
 
     companion object {
@@ -37,18 +36,52 @@ class FmftpProvider : MainAPI() {
         "Accept" to "application/json"
     )
 
+    // ------------------------------------------------------------
+    // Main page – fetch each category with its own library ID
+    // ------------------------------------------------------------
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val all = fetchMovies()
-        if (all.isEmpty()) return newHomePageResponse(emptyList())
-        val latest = all.values.take(30)
-        return newHomePageResponse(listOf(HomePageList("Latest Movies", latest)))
+        val lists = mutableListOf<HomePageList>()
+
+        // Helper to add a category
+        suspend fun addCategory(name: String, libraryId: Int? = null) {
+            val url = if (libraryId != null) {
+                "$mainUrl/api/movies?limit=2000&library=$libraryId&sort=release_date"
+            } else {
+                "$mainUrl/api/movies?limit=2000&sort=release_date"
+            }
+            val movies = fetchMovies(url)
+            if (movies.isNotEmpty()) lists.add(HomePageList(name, movies))
+        }
+
+        // 1. Latest Movies (no library filter) – shown first
+        addCategory("Latest Movies")
+
+        // 2. Hollywood – library=2
+        addCategory("Hollywood Movies", 2)
+
+        // 3. Bollywood – library=1
+        addCategory("Bollywood Movies", 1)
+
+        // 4. Hindi Dubbed – library=5
+        addCategory("Hindi Dubbed Movies", 5)
+
+        // 5. Bangla – library=7
+        addCategory("Bangla Movies", 7)
+
+        // 6. Animation – library=3
+        addCategory("Animation Movies", 3)
+
+        return newHomePageResponse(lists)
     }
 
-    private suspend fun fetchMovies(): Map<String, SearchResponse> {
+    // ------------------------------------------------------------
+    // Generic movie fetcher that accepts any API URL
+    // ------------------------------------------------------------
+    private suspend fun fetchMovies(apiUrl: String): List<SearchResponse> {
         return try {
             val response = app.get(apiUrl, headers = headers).text
             val json = mapper.readValue<Map<String, Any>>(response)
-            val movies = json["data"] as? List<Map<String, Any>> ?: return emptyMap()
+            val movies = json["data"] as? List<Map<String, Any>> ?: return emptyList()
 
             movies.mapNotNull { movie ->
                 val id = movie["id"]?.toString() ?: return@mapNotNull null
@@ -63,31 +96,36 @@ class FmftpProvider : MainAPI() {
                 val relativeUrl = movie["url"] as? String ?: ""
                 val streamUrl = "$mainUrl$relativeUrl"
 
-                // ---------- IMAGES DIRECTLY FROM JSON ----------
-                val poster = movie["poster_url"] as? String ?: ""      // e.g. "https://fmftp.net/content-images/movies/posters/8gGtvGzwyQIZeHECopX9OeLPjYH.jpg"
-                val backdrop = movie["backdrop_url"] as? String ?: ""  // e.g. "https://fmftp.net/content-images/movies/backdrops/cgjhUMqLziFU750HybRoFkEGTfV.jpg"
+                // Extract images directly from JSON (the API provides them)
+                val poster = movie["poster_url"] as? String ?: ""
+                val backdrop = movie["backdrop_url"] as? String ?: ""
 
                 val detailUrl = "http://fmftp.local/$id"
                 movieStore[detailUrl] = MovieData(
                     title, streamUrl, poster, backdrop, plot, year, rating, genres, castList
                 )
 
-                val searchResp = newMovieSearchResponse(title, detailUrl, TvType.Movie, false) {
+                newMovieSearchResponse(title, detailUrl, TvType.Movie, false) {
                     this.posterUrl = poster
                     this.year = year
                 }
-                detailUrl to searchResp
-            }.toMap()
+            }
         } catch (e: Exception) {
-            emptyMap()
+            emptyList()
         }
     }
 
+    // ------------------------------------------------------------
+    // Search – fetch all movies from the main API (no filter)
+    // ------------------------------------------------------------
     override suspend fun search(query: String): List<SearchResponse> {
-        val all = fetchMovies()
-        return all.values.filter { it.name?.contains(query, ignoreCase = true) == true }
+        val all = fetchMovies("$mainUrl/api/movies?limit=2000&sort=release_date")
+        return all.filter { it.name?.contains(query, ignoreCase = true) == true }
     }
 
+    // ------------------------------------------------------------
+    // Load movie details (uses cached poster/backdrop)
+    // ------------------------------------------------------------
     override suspend fun load(url: String): LoadResponse {
         val movie = movieStore[url] ?: throw Error("Movie not found")
         return newMovieLoadResponse(movie.title, url, TvType.Movie, movie.streamUrl) {
@@ -101,10 +139,13 @@ class FmftpProvider : MainAPI() {
                 tagsList.add("Cast: ${movie.cast.joinToString(", ")}")
             }
             if (tagsList.isNotEmpty()) this.tags = tagsList
-            // Score removed to avoid type mismatch
+            // score is omitted to avoid type mismatch (Score? vs Double)
         }
     }
 
+    // ------------------------------------------------------------
+    // Video extraction – direct URL
+    // ------------------------------------------------------------
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
