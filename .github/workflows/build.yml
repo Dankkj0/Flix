@@ -40,7 +40,10 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
-
+        
+      - name: Remove JVM properties
+        run: rm -f $GITHUB_WORKSPACE/src/gradle/gradle-daemon-jvm.properties
+        
       - name: Build Plugins
         run: |
           cd $GITHUB_WORKSPACE/src
