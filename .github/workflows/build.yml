@@ -49,6 +49,7 @@ jobs:
           cd $GITHUB_WORKSPACE/src
           chmod +x gradlew
           ./gradlew make makePluginsJson
+          find . -name "*.cs3" -type f
           cp **/build/*.cs3 $GITHUB_WORKSPACE/build
           cp build/plugins.json $GITHUB_WORKSPACE/build
 
