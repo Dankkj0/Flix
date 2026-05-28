@@ -5,9 +5,10 @@ buildscript {
         maven("https://jitpack.io")
     }
     dependencies {
+        // Android Gradle Plugin ভার্সন
         classpath("com.android.tools.build:gradle:8.2.0")
-        // এখানে লেটেস্ট কটলিন ভার্সন দেওয়া হলো
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24") 
+        // Kotlin ভার্সন আপডেট করে 2.1.0 করা হলো
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0") 
     }
 }
 
