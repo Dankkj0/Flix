@@ -77,15 +77,19 @@ class PobreFlixProvider : MainAPI() {
     ): Boolean {
         val document = app.get(data).document
         
-        // O PobreFlix costuma usar iframes de players externos (ex: Player, Mixdrop, Streamtape)
-        // Precisamos pegar a URL desse iframe
-        document.select("iframe, .player-embed iframe").forEach { 
-            val iframeUrl = it.attr("src")
-            
-            // O Cloudstream já tem extratores automáticos para vários servidores conhecidos!
-            // Se o link for de um servidor suportado, ele extrai o vídeo sozinho:
-            loadExtractor(iframeUrl, data, subtitleCallback, callback)
+        // Buscando os iframes de players de vídeo
+        document.select("iframe, .player-embed iframe").forEach { element ->
+            val iframeUrl = element.attr("src")
+            if (iframeUrl.isNotEmpty()) {
+                // Chamando o extrator diretamente do objeto correto do Cloudstream
+                com.lagradost.cloudstream3.utils.ExtractorApiKt.loadExtractor(
+                    iframeUrl, 
+                    data, 
+                    subtitleCallback, 
+                    callback
+                )
+            }
         }
         return true
     }
-}
+
