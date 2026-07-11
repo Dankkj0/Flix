@@ -1,8 +1,7 @@
-package com.example // Altere para o package correto do seu projeto
+package com.example
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.utils.ExtractorApiKt.loadExtractor
 import org.jsoup.nodes.Element
 
 class PobreFlixProvider : MainAPI() {
@@ -17,7 +16,6 @@ class PobreFlixProvider : MainAPI() {
         val document = app.get(url).document
         
         // O Jsoup varre o HTML procurando os cards dos filmes
-        // Você precisa inspecionar o site para confirmar a classe CSS dos itens (ex: .poster, .item)
         return document.select("div.items article, div.poster").mapNotNull { 
             it.toSearchResult()
         }
@@ -51,7 +49,6 @@ class PobreFlixProvider : MainAPI() {
             // Lógica para listar temporadas e episódios se for série
             val episodes = mutableListOf<Episode>()
             document.select(".episodios, .list-episodes a").forEach { 
-                // Varre os links de episódios da página
                 val epHref = it.attr("href")
                 val epName = it.text()
                 episodes.add(Episode(epHref, name = epName))
@@ -77,11 +74,11 @@ class PobreFlixProvider : MainAPI() {
     ): Boolean {
         val document = app.get(data).document
         
-        // Buscando os iframes de players de vídeo
+        // Buscando os iframes de players de vídeo sem perder o escopo do elemento
         document.select("iframe, .player-embed iframe").forEach { element ->
             val iframeUrl = element.attr("src")
             if (iframeUrl.isNotEmpty()) {
-                // Chamando o extrator diretamente do objeto correto do Cloudstream
+                // Chamada absoluta para evitar erros com o Extrator do Cloudstream
                 com.lagradost.cloudstream3.utils.ExtractorApiKt.loadExtractor(
                     iframeUrl, 
                     data, 
@@ -92,4 +89,4 @@ class PobreFlixProvider : MainAPI() {
         }
         return true
     }
-
+}
