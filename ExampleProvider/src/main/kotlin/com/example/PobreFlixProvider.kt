@@ -45,8 +45,7 @@ class PobreFlixProvider : MainAPI() {
         return if (url.contains("/series/")) {
             val episodes = mutableListOf<Episode>()
             
-            // Correção aqui: Especificando explicitamente que "element" é do tipo Element
-            document.select(".episodios, .list-episodes a").forEach { element: Element -> 
+            document.select(".episodios, .list-episodes a").forEach { element -> 
                 val epHref = element.attr("href")
                 val epName = element.text()
                 if (epHref.isNotEmpty()) {
@@ -74,12 +73,11 @@ class PobreFlixProvider : MainAPI() {
     ): Boolean {
         val document = app.get(data).document
         
-        // Correção aqui: Especificando explicitamente que "element" é do tipo Element
-        document.select("iframe, .player-embed iframe").forEach { element: Element ->
+        document.select("iframe, .player-embed iframe").forEach { element ->
             val iframeUrl = element.attr("src")
             if (iframeUrl.isNotEmpty()) {
-                // Forçando o uso correto do extrator padrão do Cloudstream
-                loadExtractor(iframeUrl, data, subtitleCallback, callback)
+                // CORREÇÃO DEFINITIVA: Usando o objeto global ExtractorApi do Cloudstream
+                ExtractorApi().loadExtractor(iframeUrl, data, subtitleCallback, callback)
             }
         }
         return true
