@@ -9,15 +9,13 @@ class PobreFlixProvider : MainAPI() {
     override var mainUrl = "https://www.pobreflixtv.design"
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
     
-    // 1. FUNÇÃO DE BUSCA: O que acontece quando você pesquisa no app
+    // 1. FUNÇÃO DE BUSCA: Pesquisa no app
     override suspend fun search(query: String): List<SearchResponse> {
-        // O site usa a estrutura padrão /?s=termo_de_busca
         val url = "$mainUrl/?s=$query"
         val document = app.get(url).document
         
-        // O Jsoup varre o HTML procurando os cards dos filmes
-        return document.select("div.items article, div.poster").mapNotNull { 
-            it.toSearchResult()
+        return document.select("div.items article, div.poster").mapNotNull { element ->
+            element.toSearchResult()
         }
     }
 
@@ -26,7 +24,6 @@ class PobreFlixProvider : MainAPI() {
         val href = this.selectFirst("a")?.attr("href") ?: return null
         val posterUrl = this.selectFirst("img")?.attr("data-src") ?: this.selectFirst("img")?.attr("src")
 
-        // Retorna se é filme ou série com base na URL ou tags do site
         return if (href.contains("/series/")) {
             newTvSeriesSearchResponse(title, href, TvType.TvSeries) {
                 this.posterUrl = posterUrl
@@ -38,7 +35,7 @@ class PobreFlixProvider : MainAPI() {
         }
     }
 
-    // 2. CARREGAR PÁGINA DO FILME: Pega sinopse, episódios, etc.
+    // 2. CARREGAR PÁGINA DO FILME: Pega sinopse e episódios se for série
     override suspend fun load(url: String): LoadResponse? {
         val document = app.get(url).document
         val title = document.selectFirst("h1, .title")?.text() ?: return null
@@ -46,12 +43,15 @@ class PobreFlixProvider : MainAPI() {
         val description = document.selectFirst(".description, .sinopse")?.text()
 
         return if (url.contains("/series/")) {
-            // Lógica para listar temporadas e episódios se for série
             val episodes = mutableListOf<Episode>()
-            document.select(".episodios, .list-episodes a").forEach { 
-                val epHref = it.attr("href")
-                val epName = it.text()
-                episodes.add(Episode(epHref, name = epName))
+            
+            // Correção aqui: Especificando explicitamente que "element" é do tipo Element
+            document.select(".episodios, .list-episodes a").forEach { element: Element -> 
+                val epHref = element.attr("href")
+                val epName = element.text()
+                if (epHref.isNotEmpty()) {
+                    episodes.add(Episode(epHref, name = epName))
+                }
             }
             newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
                 this.posterUrl = poster
@@ -65,7 +65,7 @@ class PobreFlixProvider : MainAPI() {
         }
     }
 
-    // 3. EXTRAIR LINKS DE VÍDEO: Encontra o player limpo (.mp4/.m3u8)
+    // 3. EXTRAIR LINKS DE VÍDEO: Encontra o player limpo
     override suspend fun loadLinks(
         data: String,
         isCaster: Boolean,
@@ -74,14 +74,14 @@ class PobreFlixProvider : MainAPI() {
     ): Boolean {
         val document = app.get(data).document
         
-        // Definindo explicitamente que "element" é um org.jsoup.nodes.Element
+        // Correção aqui: Especificando explicitamente que "element" é do tipo Element
         document.select("iframe, .player-embed iframe").forEach { element: Element ->
             val iframeUrl = element.attr("src")
             if (iframeUrl.isNotEmpty()) {
-                // Usando o método nativo direto da classe base MainAPI do Cloudstream
+                // Forçando o uso correto do extrator padrão do Cloudstream
                 loadExtractor(iframeUrl, data, subtitleCallback, callback)
             }
         }
         return true
     }
-    
+}
