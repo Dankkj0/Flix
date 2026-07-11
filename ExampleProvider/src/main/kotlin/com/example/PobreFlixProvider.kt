@@ -74,19 +74,14 @@ class PobreFlixProvider : MainAPI() {
     ): Boolean {
         val document = app.get(data).document
         
-        // Buscando os iframes de players de vídeo sem perder o escopo do elemento
-        document.select("iframe, .player-embed iframe").forEach { element ->
+        // Definindo explicitamente que "element" é um org.jsoup.nodes.Element
+        document.select("iframe, .player-embed iframe").forEach { element: Element ->
             val iframeUrl = element.attr("src")
             if (iframeUrl.isNotEmpty()) {
-                // Chamada absoluta para evitar erros com o Extrator do Cloudstream
-                com.lagradost.cloudstream3.utils.ExtractorApiKt.loadExtractor(
-                    iframeUrl, 
-                    data, 
-                    subtitleCallback, 
-                    callback
-                )
+                // Usando o método nativo direto da classe base MainAPI do Cloudstream
+                loadExtractor(iframeUrl, data, subtitleCallback, callback)
             }
         }
         return true
     }
-}
+    
