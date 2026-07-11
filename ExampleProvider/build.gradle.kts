@@ -3,30 +3,34 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
 }
 
-// Use an integer for version numbers
+// Use um número inteiro para as versões. Suba para 2, 3, etc., quando atualizar o código!
 version = 1
 
 cloudstream {
-    // All of these properties are optional, you can safely remove any of them.
-
-    description = "Lorem ipsum"
-    authors = listOf("Cloudburst", "Luna712")
+    // Breve descrição do que o seu plugin faz
+    description = "Provedor de filmes e séries em português usando a fonte do PobreFlix."
+    
+    // Seu nome como desenvolvedor
+    authors = listOf("Dankkj0")
 
     /**
-    * Status int as one of the following:
-    * 0: Down
-    * 1: Ok
-    * 2: Slow
+    * Status:
+    * 0: Down / Fora do ar
+    * 1: Ok / Funcionando
+    * 2: Slow / Lento
     * 3: Beta-only
     **/
-    status = 1 // Will be 3 if unspecified
+    status = 1 
 
-    tvTypes = listOf("Movie")
+    // Tipos de conteúdo que o seu raspador suporta (Filmes e Séries)
+    tvTypes = listOf("Movie", "TvSeries")
 
     requiresResources = true
-    language = "en"
+    
+    // Altere para "pt-BR" para o Cloudstream saber que o conteúdo é em português!
+    language = "pt-BR"
 
-    // Random CC logo I found
+    // Você pode colocar a URL de qualquer imagem quadrada aqui para ser o ícone do seu plugin
     iconUrl = "https://upload.wikimedia.org/wikipedia/commons/2/2f/Korduene_Logo.png"
 }
 
